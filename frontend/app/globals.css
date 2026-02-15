@@ -1,6 +1,4 @@
 @import "tailwindcss";
-
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
 @theme {
@@ -8,7 +6,8 @@
 }
 
 :root {
-  --background: #f0f4f8; /* Soft pastel */
+  --background: #f0f4f8;
+  /* Soft pastel */
   --foreground: #171717;
 }
 
