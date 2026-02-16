@@ -1,62 +1,60 @@
 
-import { useEffect, useState } from 'react';
-import { ProxyNetworkProvider } from '@multiversx/sdk-network-providers';
-import { SmartContract, Address, ContractFunction, ResultsParser } from '@multiversx/sdk-core';
-import { contractAddress, environment } from '../config';
-import { MonState, MonData } from '../types';
+import { useCallback, useEffect, useState } from 'react';
 
-// Devnet API
-const networkProvider = new ProxyNetworkProvider('https://devnet-api.multiversx.com');
+import { MonData } from '../types';
 
 export function useMonState() {
     const [monData, setMonData] = useState<MonData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const fetchState = async () => {
+    const fetchState = useCallback(async (opts?: { markLoading?: boolean }) => {
         try {
-            const contract = new SmartContract({ address: new Address(contractAddress) });
+            if (opts?.markLoading) setIsLoading(true);
+            setError(null);
 
-            // Query getMonState
-            const queryState = contract.createQuery({
-                func: new ContractFunction('getMonState'),
-            });
-            const queryResponseState = await networkProvider.queryContract(queryState);
-            const endpointDefinitionState = contract.getEndpoint('getMonState');
-            const { firstValue: stateEnum } = new ResultsParser().parseQueryResponse(queryResponseState, endpointDefinitionState);
+            const res = await fetch('/api/state', { cache: 'no-store' });
+            if (!res.ok) {
+                const text = await res.text().catch(() => '');
+                throw new Error(text || `State API failed (${res.status})`);
+            }
 
-            // Query lastFedTimestamp
-            const queryTime = contract.createQuery({
-                func: new ContractFunction('getLastFedTimestamp'),
-            });
-            const queryResponseTime = await networkProvider.queryContract(queryTime);
-            const endpointDefinitionTime = contract.getEndpoint('getLastFedTimestamp');
-            const { firstValue: lastFed } = new ResultsParser().parseQueryResponse(queryResponseTime, endpointDefinitionTime);
-
-            // Query totalFeeds
-            const queryFeeds = contract.createQuery({
-                func: new ContractFunction('getTotalFeeds'),
-            });
-            const queryResponseFeeds = await networkProvider.queryContract(queryFeeds);
-            const endpointDefinitionFeeds = contract.getEndpoint('getTotalFeeds');
-            const { firstValue: totalFeeds } = new ResultsParser().parseQueryResponse(queryResponseFeeds, endpointDefinitionFeeds);
+            const data = (await res.json()) as {
+                state: MonData['state'];
+                lastFedTimestamp: number;
+                totalFeeds: number;
+            };
 
             setMonData({
-                state: (stateEnum?.valueOf() as unknown as MonState) || MonState.Happy,
-                lastFedTimestamp: (lastFed?.valueOf() as number) || 0,
-                totalFeeds: (totalFeeds?.valueOf() as number) || 0,
+                state: data.state,
+                lastFedTimestamp: Number(data.lastFedTimestamp) || 0,
+                totalFeeds: Number(data.totalFeeds) || 0,
             });
         } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setError(msg);
             console.error('Error fetching mon state:', err);
         } finally {
             setIsLoading(false);
         }
-    };
-
-    useEffect(() => {
-        fetchState();
-        const interval = setInterval(fetchState, 5000); // 5s poll
-        return () => clearInterval(interval);
     }, []);
 
-    return { monData, isLoading };
+    useEffect(() => {
+        fetchState({ markLoading: true });
+
+        const interval = setInterval(() => fetchState(), 20_000); // 20s poll
+        const onFocus = () => fetchState();
+        const onFed = () => fetchState();
+
+        window.addEventListener('focus', onFocus);
+        window.addEventListener('vita:fed', onFed);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', onFocus);
+            window.removeEventListener('vita:fed', onFed);
+        };
+    }, [fetchState]);
+
+    return { monData, isLoading, error, refresh: () => fetchState({ markLoading: true }) };
 }

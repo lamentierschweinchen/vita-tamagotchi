@@ -2,11 +2,16 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:unit": "tsc -p tsconfig.tests.json && node --test .test-dist/tests/*.test.js",
+    "test": "npm run test:unit"
   },
   "dependencies": {
     "@multiversx/sdk-core": "^13.17.2",

@@ -8,6 +8,7 @@ interface LifeBarProps {
 export default function LifeBar({ lastFedTimestamp }: LifeBarProps) {
     const [timeLeft, setTimeLeft] = useState(0);
     const totalDuration = 24 * 3600;
+    const segments = 12;
 
     useEffect(() => {
         const updateTime = () => {
@@ -23,20 +24,30 @@ export default function LifeBar({ lastFedTimestamp }: LifeBarProps) {
     }, [lastFedTimestamp, totalDuration]);
 
     const percentage = (timeLeft / totalDuration) * 100;
+    const litSegments = Math.max(0, Math.min(segments, Math.ceil((percentage / 100) * segments)));
 
-    let color = 'bg-green-500';
-    if (percentage < 25) color = 'bg-red-500';
-    else if (percentage < 50) color = 'bg-yellow-500';
+    let level: 'high' | 'mid' | 'low' = 'high';
+    if (percentage < 25) level = 'low';
+    else if (percentage < 50) level = 'mid';
+
+    const hours = Math.floor(timeLeft / 3600);
+    const minutes = Math.floor((timeLeft % 3600) / 60);
 
     return (
-        <div className="w-full bg-gray-200 rounded-full h-6 dark:bg-gray-700 mt-4 overflow-hidden">
-            <div
-                className={`${color} h-6 rounded-full transition-all duration-1000 ease-linear`}
-                style={{ width: `${percentage}%` }}
-            ></div>
-            <div className="text-center text-xs mt-1">
-                {Math.floor(timeLeft / 3600)}h {Math.floor((timeLeft % 3600) / 60)}m left
+        <section className="life-panel" aria-label="Pet vitality">
+            <div className="life-panel__head">
+                <span>Vitality</span>
+                <span>{hours}h {minutes}m</span>
             </div>
-        </div>
+
+            <div className={`life-segments life-segments--${level}`}>
+                {Array.from({ length: segments }).map((_, index) => (
+                    <span
+                        key={index}
+                        className={`life-segment ${index < litSegments ? 'life-segment--filled' : ''}`}
+                    />
+                ))}
+            </div>
+        </section>
     );
 }
